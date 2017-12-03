@@ -4,6 +4,22 @@ import cgi
 import cgitb
 import socket
 import backend
+import struct
+
+def ChecksumVer(packet):
+	# Index of first byte in the options field
+	options_index = struct.calcsize('!BBBHHBHBB16s16s16s')
+	# Header
+	header = packet[:options_index]
+	# Unpack header
+	Version, IHL, Type_of_service, Total_length, Identification, Flags, Fragment_offset, Time_to_live, Protocol, Header_checksum, Source_address, Destination_address = struct.unpack('!BBBHHBHBB16s16s16s', header)
+	# Pack checksum data (header minus checksum field) to provide as argument to crc16()
+	local_checksum_data = struct.pack('!BBBHHBHBB16s16s', Version, IHL, Type_of_service, Total_length, Identification, Flags, Fragment_offset, Time_to_live, Protocol, Source_address, Destination_address)
+	# Calculate checksum
+	local_checksum = backend.crc16(local_checksum_data)
+	remote_checksum = Header_checksum
+	print 'Calculated checksum value: ' + local_checksum
+	print 'Received checksum value: ' + remote_checksum
 
 cgitb.enable()
 
@@ -90,6 +106,8 @@ data1 = [] # Data list for maq1
 data2 = [] # Data list for maq2
 data3 = [] # Data list for maq3
 
+options_index = struct.calcsize('!BBBHHBHBB16s16s16s')
+
 # Create socket for maq1
 # Initialize packet sequence number
 SEQ_NUMBER = 0
@@ -128,7 +146,10 @@ for index, command_type in enumerate(['ps', 'df', 'finger', 'uptime']):
                 s1.send(Packet)
 
                 # Receive data to publish on webpage
-                data1.append(s1.recv(1024))
+		Packet_reply = s1.recv(1024)
+		ChecksumVer(Packet_reply)
+		output = Packet_reply[options_index:]
+                data1.append(output)
         else:
                 data1.append('')
 # Close socket
@@ -173,8 +194,11 @@ for index, command_type in enumerate(['ps', 'df', 'finger', 'uptime']):
                 s2.send(Packet)
 
                 # Receive data to publish on webpage
-                data2.append(s2.recv(1024))
-        else:
+        	Packet_reply = s2.recv(1024)
+		ChecksumVer(Packet_reply)
+		output = Packet_reply[options_index:]
+		data2.append(output)
+	else:
                 data2.append('')
 # Close socket
 s2.close()
@@ -217,8 +241,11 @@ for index, command_type in enumerate(['ps', 'df', 'finger', 'uptime']):
                 s3.send(Packet)
 
                 # Receive data to publish on webpage
-                data3.append(s3.recv(1024))
-        else:
+        	Packet_reply = s3.recv(1024)
+		ChecksumVer(Packet_reply)
+		output = Packet_reply[options_index:]
+		data3.append(output)
+	else:
                 data3.append('')
 # Close socket
 s3.close()

@@ -4,6 +4,7 @@ from thread import *
 import struct
 import os 
 from backend import crc16
+from backend import SizeInBytes
 import time
          
 HOST = ''
@@ -61,7 +62,7 @@ def CreateThread(connection):
                 # Received checksum value
                 remote_checksum = Header_checksum
                 print 'Received checksum value: ' + remote_checksum
-
+		
                 # Get command code from the appropriate header field
                 code = Protocol
 
@@ -78,18 +79,28 @@ def CreateThread(connection):
                 if '|' in options or ';' in options or '>' in options:
                         output = 'Error: trying to execute malicious command'
                 else:
-                        # Execute command on daemon process
+			# Execute command on daemon process
                         f = os.popen(command_type + ' ' + options)
                         output = f.read()
-                print output
+		
+		print output
 
-                # Execute command on daemon process
-                f = os.popen(command_type + ' ' + options)
-                output = f.read()
-                print output
-
+		# Update reply header fields
+		Total_length_reply = options_index + SizeInBytes(output) 
+		Flags_reply = 1
+		Time_to_live_reply = Time_to_live - 1
+		Source_address_reply = Destination_address
+		Destination_address_reply = Source_address
+                # Calculate reply checksum value
+                Checksum_data_reply = struct.pack('!BBBHHBHBB16s16s', Version, IHL, Type_of_service, Total_length_reply, Identification, Flags_reply , Fragment_offset, Time_to_live_reply, Protocol, Source_address_reply, Destination_address_reply) 
+		Checksum_reply = crc16(Checksum_data_reply)
+		# Create reply header
+		Header_reply = struct.pack('!BBBHHBHBB16s16s16s', Version, IHL, Type_of_service, Total_length_reply, Identification, Flags_reply, Fragment_offset, Time_to_live_reply, Protocol, Checksum_reply, Source_address_reply, Destination_address_reply)
+		# Create reply packet
+		Packet_reply = Header_reply + output
+			
                 # Send output of command through the connection
-                connection.sendall(output)
+                connection.sendall(Packet_reply)
 
         connection.close()
 
