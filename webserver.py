@@ -343,4 +343,4 @@ if maq3_uptime_flag == "ON":
         print("<pre>")
         print(data3[3])
         print("</pre>")
-        print("<br /> </p>")usr/bin/env python
+        print("<br /> </p>")
